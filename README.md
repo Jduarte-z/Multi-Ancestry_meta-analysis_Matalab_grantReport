@@ -1,6 +1,6 @@
 # Multi-Ancestry_meta-analysis_Matalab_grantReport
 
-This repository contains the methods employed to conduct a Trans-ethnic meta-regression of genome-wide association studies for Parkinson’s Disease risk.
+This repository contains the methods employed to conduct a Trans-ethnic meta-regression of genome-wide association studies for Parkinson’s Disease risk. As part of a series of in house 
 
 We used eight different GWAS summary statistics from ancestrally diverse datasets. And used MR-MEGA (https://pubmed.ncbi.nlm.nih.gov/28911207/) to perform a meta-analysis with meta-regression. 
 
@@ -37,7 +37,7 @@ import numpy as np
 import gzip
 
 # === File paths ===
-INPUT_FILE = "/home/duartej3/beegfs/JF/runSAIGE_and_AK_phase2B1-8/runSAIGE_phase1/runSaige/runSaige/saige_4LZ.tsv"  # or .gz #the zipped file should not output any excluded rows because the one that has missing values is the plain .txt file 
+INPUT_FILE = "saige_phase1.tsv"  # or .gz #the zipped file should not output any excluded rows because the one that has missing values is the plain .txt file 
 OUTPUT_FILE = "lpd_phase1_saige_modified.tsv"
 EXCLUDED_ROWS_FILE = "excluded_rows_lpd_phase1_saige.txt"
 EXCLUSION_SUMMARY_FILE = "exclusion_summary_lpd_phase1_saige.txt"
@@ -115,7 +115,7 @@ import numpy as np
 import gzip
 
 # === File paths ===
-INPUT_FILE = "/home/duartej3/beegfs/JF/runSAIGE_and_AK_phase2B1-8/runSAIGE_phase2_batch1-8/run/runSaige/saige_4LZ.tsv"  # or .gz #the zipped file should not output any excluded rows because the one that has missing values is the plain .txt file 
+INPUT_FILE = "saige_phase2.tsv"  # or .gz #the zipped file should not output any excluded rows because the one that has missing values is the plain .txt file 
 OUTPUT_FILE = "lpd_phase2_batch1-8_saige_modified.tsv"
 EXCLUDED_ROWS_FILE = "excluded_rows_lpd_phase2_batch1-8_saige.txt"
 EXCLUSION_SUMMARY_FILE = "exclusion_summary_lpd_phase2_batch1-8_saige.txt"
