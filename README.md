@@ -11,7 +11,7 @@ The main steps undertaken consisted on:
 2) Run the first round of MR-MEGA to decide how many PCs to include
 3) Run the second round of MR-MEGA
 4) Format the output summary statistics
-5) Interrogate the discovery of novel loci
+5) Fine map genomic risk regions and interrogate the discovery of novel loci
 6) Plot findings 
 
 
@@ -1406,4 +1406,28 @@ Analysis finished.
 
 ```
 </details>
+
+### PCA plots 
+
+As it is evidenced in the PCA plots. Together PC1 through PC4 can separate almost all the cohorts, except the South African cohort from the European cohort. These last two are well separated only by PC5. Hence, we must use them all.
+
+Unlike the last multi-ancestry PD meta-analysis where they showed that only 3 PCs were enough to separate all their cohorts, we needed two additional PCs to achieve good separation. However, at that time, neither South Asian or South African cohorts were available. 
+
+<details>
+    <summary>PCs</summary>
+            
+<img width="602" height="490" alt="pc1-2" src="https://github.com/user-attachments/assets/7c380665-e0db-4cf2-9acd-d53e9b017600" />
+<img width="602" height="489" alt="pc2-3" src="https://github.com/user-attachments/assets/4cd8f705-0e8c-4670-a898-7b467a033673" />
+<img width="602" height="489" alt="pc3-4" src="https://github.com/user-attachments/assets/c1882ef6-8b07-426d-868f-35cc0be5b74e" />
+<img width="599" height="489" alt="pc4-5" src="https://github.com/user-attachments/assets/da64147f-c118-4034-8c07-478e024cb7d8" />
+
+</details>
+
+
+## 3) MR-MEGA second round run
+
+Considering that in the first round we concluded that at least 5 PCs were needed to achieve good separation among the different cohorts, and that these were the defaluts. We did not need a second round run. 
+
+## 4) Format the output summary statistics 
+
 
