@@ -2,7 +2,10 @@
 
 This repository contains the methods employed to conduct a Trans-ethnic meta-regression of genome-wide association studies for Parkinson’s Disease risk. As part of a series of in house preliminar experiments.
 
-The data repository accompaying this github could be found here: https://1drv.ms/u/c/5E290E405B8F3AAB/IQA47-OXil7WTZL4fIEez9lsASCknf5FqVRYGZpijBBmRfk?e=Gq1P67 
+The data repository accompaying this github could be found here:
+```
+https://1drv.ms/f/c/5E290E405B8F3AAB/IgClCBQoU0ntRK-S75UCccCDATqybV13aQOf4mkdflbzs-k?e=VVSDea
+```
 
 We used eight different GWAS summary statistics from ancestrally diverse datasets. And used MR-MEGA (https://pubmed.ncbi.nlm.nih.gov/28911207/) to perform a meta-analysis with meta-regression. 
 
