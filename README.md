@@ -11,8 +11,9 @@ The main steps undertaken consisted on:
 2) Run the first round of MR-MEGA to decide how many PCs to include
 3) Run the second round of MR-MEGA
 4) Format the output summary statistics
-5) Fine map genomic risk regions and interrogate the discovery of novel loci
-6) Plot findings 
+5) Fine map genomic risk regions
+6) Interrogate the discovery of novel loci
+7) Plot findings 
 
 
 ## 1) Format input summary statistics 
@@ -1428,6 +1429,579 @@ Unlike the last multi-ancestry PD meta-analysis where they showed that only 3 PC
 
 Considering that in the first round we concluded that at least 5 PCs were needed to achieve good separation among the different cohorts, and that these were the defaluts. We did not need a second round run. 
 
+For the record, here is the command line used to run MR-MEGA:
+```
+MR-MEGA -i MR-MEGA_input.in --pc 5 --o MAMA_grant --name_chr CHR --name_pos POS
+```
+The MR-MEGA_input.in contains the list with the paths for each of the eight GWASs.
+
 ## 4) Format the output summary statistics 
+
+Considering that the raw output from MR-MEGA looks like this:
+<details>
+    <summary>raw MR-MEGA output header</summary>
+            
+```python=
+MarkerName	Chromosome	Position	EA	NEA	EAF	Nsample	Ncohort	Effects	beta_0	se_0	beta_1	se_1	beta_2	se_2	beta_3	se_3	beta_4	se_4	beta_5	se_5	chisq_association	ndf_association	P-value_association	chisq_ancestry_het	ndf_ancestry_het	P-value_ancestry_het	chisq_residual_het	ndf_residual_het	P-value_residual_het	lnBF	Comments
+chr1:730869:C:T	1	730869	T	C	0.0121143	1.84695e+06	5	+-+-???+	NA	NA	NA	NA	NA	NA	NA	NA	NA	NA	NA	NA	NA	NA	NA	NA	NA	NA	NA	NA	NA	NA	SmallCohortCount
+chr1:758443:G:C	1	758443	C	G	0.117211	1.85059e+06	6	-----??+	NA	NA	NA	NA	NA	NA	NA	NA	NA	NA	NA	NA	NA	NA	NA	NA	NA	NA	NA	NA	NA	NA	SmallCohortCount
+chr1:762107:A:C	1	762107	C	A	0.0117554	1.83426e+06	3	+++?????
+
+```
+</details>
+
+A couple of steps were taken in order to plot the summary statistics, perform the bayesian fine mapping of the genomic risk loci, and the assessment of the discovery of potential novel loci. 
+
+As a first formatting step, we use some help from the python toolkit called gwaslab (https://cloufield.github.io/gwaslab/). 
+
+We use their function called basic_check() to get an initial clean summary statistics from which we could further elaborate on.
+
+<details>
+    <summary>first_pass_parse_gwaslab.py</summary>
+            
+```python=
+import gwaslab as gl
+
+input_file="MAMA_grant.result"
+output_file="MR-MEGA"
+cores=12
+
+ss = gl.Sumstats(input_file, build="38",
+    snpid="MarkerName",     
+    chrom="Chromosome",
+    pos="Position",
+    ea="EA",
+    eaf="EAF",
+    nea="NEA",
+    n="Nsample",
+    p="P-value_association",
+    direction="Effects",
+    phet="P-value_ancestry_het",
+    other=["Ncohort","P-value_residual_het","lnBF"],
+    sep="\t",
+    na_values=["NA","."],
+    verbose=True
+)
+
+ss.basic_check(
+    remove=True,
+    fixid_args={"fixchrpos":False,"fixid":False,"fixsep":False,"forcefixid":False,"overwrite":False},
+    n_cores=cores,
+    removedup_args={"mode":"c","keep":"first","keep_col":"P","remove":True}, 
+    normalizeallele_args={},
+    verbose=True
+)
+
+ss.to_format(path=output_file, fmt="gwaslab",cols=["Ncohort","P-value_residual_het","lnBF"])
+
+```
+</details>
+
+Once this file is generated, we call gwaslab again to assign each entry an rsID based on the most recent dbSNP reference files for build hg38. 
+This functionality could have been included in the previous step, however it is nice to have a clean copy of your data. Gwaslab offers as well some functions to save intermediate summary statistics files. This could be another alternative. 
+ 
+<details>
+    <summary>assign_rsID.py</summary>
+            
+```python=
+import gwaslab as gl
+
+input_file="MR-MEGA.gwaslab.tsv" #the file that the first parse outputs 
+output_file="MR-MEGA_with_rsID_fullCols_hg38"
+logFile="getrsID_log"
+cores=12
+
+#Load the data 
+ss = gl.Sumstats(input_file, build="38", #you could potentially input the data as gwaslab format, however, if you do not specify which additional columns to be included here and at the output, they are going to be ignored
+    snpid="SNPID",     
+    chrom="CHR",
+    pos="POS",
+    ea="EA",
+    eaf="EAF",
+    nea="NEA",
+    n="N",
+    p="P",
+    direction="DIRECTION",
+    phet="P_HET",
+    other=["Ncohort","P-value_residual_het","lnBF"],
+    sep="\t",
+    na_values=["NA","."],
+    verbose=True
+)
+
+ss.basic_check(
+    remove=False,
+    n_cores=cores,
+    normalizeallele_args={},
+    verbose=True
+)
+
+ss.assign_rsid(n_cores=cores,
+                       ref_rsid_vcf="/home/duartej3/beegfs/JF/programs/gwaslab/referenceFiles/GCF_000001405.40.gz",
+                       chr_dict = gl.get_number_to_NC(build="38") 
+)
+
+
+ss.sort_column()
+ss.to_format(path=output_file, fmt="gwaslab",cols=["Ncohort","P-value_residual_het","lnBF"])
+ss.log.save(path=logFile)
+
+```
+</details>
+
+The output summary statistics with the rsIDs look like this (P_HET is the column that contains the p value for the ancestry heterogeneity test):
+
+```
+SNPID	rsID	CHR	POS	EA	NEA	EAF	P	N	DIRECTION	P_HET	STATUS	Ncohort	P-value_residual_het	lnBF
+chr1:858952:G:A	rs12127425	1	858952	A	G	0.0771	9.1735e-01	1884050	-----+++	0.944081	3860099	8	0.410831	-5.22565
+chr1:910255:C:T	rs117086422	1	910255	T	C	0.197	2.2446e-01	1884050	++--++--	0.151687	3860099	8	0.803276	-2.14298
+```
+
+## 5) Fine mapping and novel genomic risk loci 
+
+To fine map the genome-wide significant genomic risk loci we employed the same framework used in the most recent multi-ancestry meta-analysis for PD risk (https://www.nature.com/articles/s41588-023-01584-8) and our LARGE-PD gwas (https://www.medrxiv.org/content/10.1101/2025.07.18.25331793v1.full-text) That leverages the Bayesian factor outputted by MR-MEGA to construct 95 and 99% credible sets for each genomic region discovered. 
+
+This requires uploading the summary statistics to the FUMA platform (https://fuma.ctglab.nl/). For the upload settings, we choose a p-value threshold of 5e-9 to define the significant genomic risk loci. Since the increased number of ancestries in the dataset potentially increases the number of haplotypes/number of independent tests. For the LD clumping to define the lead and independent variants, we choose the 1KGP “all” reference panel. 
+
+Since FUMA requires either the rsIDs or the genomic positions to be in hg19, we performed a liftover of the sumstats to hg19. Specially since the fine mapping pipeline relies on the genomic risk loci defined by FUMA in order to perform bayesian fine mapping. 
+
+Briefly, the script loads the FUMA GenomicRiskLoci.txt file, which defines each genomic risk locus by chromosome and hg19 start/end positions. For each risk locus, we subset the MR-MEGA summary statistics to variants within that interval and convert MR-MEGA’s log Bayes factors (lnBF) to Bayes factors (BF = exp(lnBF)) for association versus the null model. Assuming a single causal variant per locus and equal prior probability across SNPs, we treat the Bayes factors as proportional to the posterior probability of causality, normalize them to obtain posterior probabilities, and rank SNPs accordingly. We then build 95% and 99% credible sets by adding SNPs in order of decreasing posterior probability until the cumulative posterior mass within the locus reaches 95% or 99%, respectively. These credible sets and their posterior probabilities are recorded in the fine-mapping report.
+
+<details>
+    <summary>bayesian_fine_mapping.py</summary>
+            
+```python=
+import os
+import argparse
+import pandas as pd
+import numpy as np
+from scipy.stats import chi2
+
+
+def load_fuma_and_summary(fuma_dir: str, mrmega_file: str):
+    #Load FUMA risk-locus definitions and MR-MEGA summary statistics.
+    loci_path = os.path.join(fuma_dir, "GenomicRiskLoci.txt")
+    if not os.path.exists(loci_path):
+        raise FileNotFoundError(f"Cannot find FUMA loci file at {loci_path}")
+    loci = pd.read_csv(loci_path, delim_whitespace=True)
+
+    if not os.path.exists(mrmega_file):
+        raise FileNotFoundError(f"Cannot find MR-MEGA file at {mrmega_file}")
+    sumstat = pd.read_csv(
+        mrmega_file,
+        delim_whitespace=True,
+        compression='infer',
+        engine='c'
+    )
+    return loci, sumstat
+
+
+def finemap_locus(loci_df, sumstat_df):
+    """
+    Compute 95% and 99% credible sets for each locus based on Bayes Factors.
+    Returns report, cs95_df, cs99_df.
+    """
+
+        # Work on copies so we don't mutate original dataframes outside
+    loci_df = loci_df.copy()
+    sumstat_df = sumstat_df.copy()
+
+    # Harmonize chromosome types 
+    if 'CHR' in sumstat_df.columns:
+        sumstat_df['CHR'] = pd.to_numeric(sumstat_df['CHR'], errors='coerce')
+    if 'chr' in loci_df.columns:
+        loci_df['chr'] = pd.to_numeric(loci_df['chr'], errors='coerce')
+
+    # Harmonize positions 
+    for col in ['start', 'end']:
+        if col in loci_df.columns:
+            loci_df[col] = pd.to_numeric(loci_df[col], errors='coerce')
+
+    if 'POS_HG37' not in sumstat_df.columns:
+        raise KeyError("Expected column 'POS_HG37' in MR-MEGA sumstats.")
+
+    sumstat_df['POS_HG37'] = pd.to_numeric(sumstat_df['POS_HG37'], errors='coerce')
+    
+    # Convert lnBF to BF
+    sumstat_df['BF'] = np.exp(sumstat_df['lnBF'])
+    report_rows = []
+    cs95_list = []
+    cs99_list = []
+    grouped = {chrom: df for chrom, df in sumstat_df.groupby('CHR')}
+
+    for idx, row in loci_df.iterrows():
+        chrom = row['chr']
+        start = row['start']
+        end = row['end']
+        df_chr = grouped.get(chrom)
+        if df_chr is None:
+            continue
+        window = df_chr[(df_chr['POS_HG37'] >= start) & (df_chr['POS_HG37'] <= end)].copy()
+        window = window.sort_values('BF', ascending=False).reset_index(drop=True)
+        total_bf = window['BF'].sum()
+
+        # 95% credible set
+        cum = 0.0
+        sel95 = []
+        for i, bf in enumerate(window['BF']):
+            cum += bf
+            sel95.append(i)
+            if cum / total_bf >= 0.95:
+                break
+        cs95 = window.loc[sel95].copy()
+        cs95['PP'] = cs95['BF'] / total_bf
+        cs95['Locus'] = idx + 1
+        cs95_list.append(cs95)
+
+        # 99% credible set
+        cum = 0.0
+        sel99 = []
+        for i, bf in enumerate(window['BF']):
+            cum += bf
+            sel99.append(i)
+            if cum / total_bf >= 0.99:
+                break
+        cs99 = window.loc[sel99].copy()
+        cs99['PP'] = cs99['BF'] / total_bf
+        cs99['Locus'] = idx + 1
+        cs99_list.append(cs99)
+
+        # Collect SNP lists per locus
+        snps95 = window.loc[sel95, 'MarkerName'] if 'MarkerName' in window.columns else window.loc[sel95, 'rsID']
+        snps99 = window.loc[sel99, 'MarkerName'] if 'MarkerName' in window.columns else window.loc[sel99, 'rsID']
+
+        report_rows.append({
+            'Locus': idx + 1,
+            'NumSNPs': window.shape[0],
+            'NumSNPs_in_95%': len(sel95),
+            'NumSNPs_in_99%': len(sel99),
+            'SNPs_in_95%': ';'.join(snps95.astype(str)),
+            'SNPs_in_99%': ';'.join(snps99.astype(str))
+        })
+
+    report = pd.DataFrame(report_rows)
+    cs95_df = pd.concat(cs95_list, ignore_index=True) if cs95_list else pd.DataFrame()
+    cs99_df = pd.concat(cs99_list, ignore_index=True) if cs99_list else pd.DataFrame()
+    return report, cs95_df, cs99_df
+
+
+def annotate_with_fuma(cs_df, fuma_dir: str):
+    """
+    Annotate a credible-set DataFrame with FUMA snp annotations.
+    """
+    snp_file = os.path.join(fuma_dir, 'snps.txt')
+    if not os.path.exists(snp_file):
+        raise FileNotFoundError(f"Cannot find FUMA SNP file at {snp_file}")
+    fuma = pd.read_csv(snp_file, delim_whitespace=True)
+    fuma = fuma.rename(columns={'chr': 'CHR', 'pos': 'BP'})
+    annotated = cs_df.merge(
+        fuma,
+        left_on=['CHR', 'POS_HG37'],
+        right_on=['CHR', 'BP'],
+        how='left'
+    )
+    return annotated
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Fine-map MR-MEGA results using FUMA loci.")
+    parser.add_argument('--fuma-dir', required=True, help='Path to FUMA output directory')
+    parser.add_argument('--mrmega-file', required=True, help='Path to MR-MEGA summary stats (.tsv.gz)')
+    parser.add_argument('--out-dir', default='output', help='Directory for fine-mapping outputs')
+    args = parser.parse_args()
+
+    os.makedirs(args.out_dir, exist_ok=True)
+
+    loci, sumstat = load_fuma_and_summary(args.fuma_dir, args.mrmega_file)
+    report, cs95, cs99 = finemap_locus(loci, sumstat)
+
+    # Save reports
+    report_file = os.path.join(args.out_dir, 'finemap_report.tsv')
+    cs95_file   = os.path.join(args.out_dir, 'finemap_cs_95.tsv')
+    cs99_file   = os.path.join(args.out_dir, 'finemap_cs_99.tsv')
+    report.to_csv(report_file, sep='\t', index=False)
+    cs95.to_csv(cs95_file, sep='\t', index=False)
+    cs99.to_csv(cs99_file, sep='\t', index=False)
+
+    # Annotate credible sets
+    annotated95 = annotate_with_fuma(cs95, args.fuma_dir)
+    annotated99 = annotate_with_fuma(cs99, args.fuma_dir)
+    annotated95_file = os.path.join(args.out_dir, 'finemap_cs_95_annot.tsv')
+    annotated99_file = os.path.join(args.out_dir, 'finemap_cs_99_annot.tsv')
+    annotated95.to_csv(annotated95_file, sep='\t', index=False)
+    annotated99.to_csv(annotated99_file, sep='\t', index=False)
+
+    # Identify singleton loci and their rsIDs
+    single95_loci = report[report['NumSNPs_in_95%'] == 1]['Locus']
+    single95_snps = cs95[cs95['Locus'].isin(single95_loci)][['Locus', 'rsID']]
+    single95_snps = single95_snps.rename(columns={'rsID': 'rsID'})
+    single95_file = os.path.join(args.out_dir, 'singleton_loci_95.tsv')
+    single95_snps.to_csv(single95_file, sep='\t', index=False)
+
+    single99_loci = report[report['NumSNPs_in_99%'] == 1]['Locus']
+    single99_snps = cs99[cs99['Locus'].isin(single99_loci)][['Locus', 'rsID']]
+    single99_snps = single99_snps.rename(columns={'rsID': 'rsID'})
+    single99_file = os.path.join(args.out_dir, 'singleton_loci_99.tsv')
+    single99_snps.to_csv(single99_file, sep='\t', index=False)
+
+if __name__ == "__main__":
+    main()
+
+```
+</details>
+
+An example on how to run the script is as follow:
+
+```
+python fine_map.py --fuma-dir ./ --mrmega-file MR-MEGA_with_rsID_fullCols_hg37.tsv
+```
+
+The fine mapping results could be found in the data repository accompaying this github. 
+We report 11 genomic risk regions that have a single variant in the 99% credible set and 13 genomic risk regions that have a single variant in the 95% credible set. 
+
+
+## 6) Interrogation of novel risk loci 
+
+In order to interrogate if we have genome-wide significant novel loci, we have to gather all the previously known loci associated with Parkinson’s Disease. 
+
+For this purpose, we downloaded all the associations reported by GWAS catalog (https://www.ebi.ac.uk/gwas/efotraits/MONDO_0005180) and the NDKP database (https://ndkp.hugeamp.org/phenotype.html
+phenotype=Parkinsons). 
+
+GWAS catalog stores all the variants associated with PD with a p value of at least 1e-5 within their datasets. While NDKP reports all the associated variants with a p value of at least 5e-8 within their
+datasets. Hence, in order to be as comprehensive as possible, we gathered all the rsID available in both databases (over 800 in GWAS catalog and over 200 in NDKP) and made a single text list (attached with the
+data repository accompaying the github). 
+
+With this rsID table, we leveraged a gwaslab lab function to assign chromosome and position in build hg38 to each of the SNPs. We did it this way in order to avoid potential discordances among the genomic
+coordinates that GWAS catalog and NDKP reported, since there was ambiguity on the build of the positions. Hence, using their own rsIDs to map the adequate genomic coordinates is the most reliable procedure. 
+
+The chromosome and position of each rsID will be used by gwaslab again to compare against our MR-MEGA summary statistics and define novel risk loci. 
+
+With the following code we obtained the CHR and POS for each rsID using a modified version of the dbSNP reference file (build hg38)
+
+<details>
+    <summary>get_rsIDs_chr_pos.py</summary>
+            
+```python=
+import gwaslab as gl
+
+input_file="gwasCatalog_ndkp_known_rsID_PD.txt"
+output_file="gwasCatalog_ndkp_known_rsID_PD_chr_pos"
+logFile="gwasCatalog_ndkp_known_rsID_PD_chr_pos"
+cores=12
+
+ss = gl.Sumstats(input_file, build="38",
+    rsid="rsID", 
+    verbose=True
+)
+
+ss.rsid_to_chrpos2(path="/home/duartej3/beegfs/JF/programs/gwaslab/referenceFiles/GCF_000001405.40.gz.rsID_CHR_POS_groups_20000000.h5",
+			#n_cores="12",
+			build="38"
+)
+
+
+ss.fix_chr()
+ss.fix_pos()
+ss.sort_coordinate()
+ss.sort_column()
+ss.to_format(path=output_file, fmt="gwaslab")
+ss.log.save(path=logFile)
+```
+</details>
+
+The file obtained looks like this:
+
+```
+rsID	CHR	POS	STATUS
+rs7532024	1	7119419	3890999
+rs302714	1	8426071	3890999
+```
+
+The official table that gwaslab uses to compare against in order to find novel loci must have only chromosome and position and must be free of NA values, like this:
+```
+CHR	POS
+1	7119419
+1	8426071
+```
+
+Using gwaslab, we leveraged the known loci table that we just built and interrogated the presence of novel risk loci. Based on the criteria outlined in the latest multi-ancestry meta-analysis for PD risk (https://www.nature.com/articles/s41588-023-01584-8) 
+
+<details>
+    <summary>get_novelLoci.py</summary>
+            
+```python=
+import gwaslab as gl
+
+input_file="MR-MEGA_with_rsID_fullCols_hg38"
+logFile="novel_log"
+cores=12
+
+ss = gl.Sumstats(input_file, build="38", fmt="gwaslab",
+
+)
+
+#new
+ss.fix_chr(remove=True)
+ss.fix_pos(remove=True)
+
+res = ss.get_novel(
+    known="gwasCatalog_ndkp_known_rsID_PD_just_chr_pos.tsv",
+    only_novel=False,            # return both
+    sig_level=5e-9,
+    windowsizekb=250,
+    windowsizekb_for_novel=250
+)
+res.query("NOVEL == True").to_csv("novel_hits.tsv", sep="\t", index=False)
+res.query("NOVEL == False").to_csv("known_hits.tsv", sep="\t", index=False)
+
+ss.log.save(path=logFile)
+```
+</details>
+
+Here is the log file, in which is registered the discovery of 8 potential novel loci:
+
+<details>
+    <summary>log file novel loci</summary>
+            
+```python=
+2025/11/20 21:16:17 Sumstats Object created.
+2025/11/20 21:16:17 GWASLab v3.6.10 https://cloufield.github.io/gwaslab/
+2025/11/20 21:16:17 (C) 2022-2025, Yunye He, Kamatani Lab, GPL-3.0 license, gwaslab@gmail.com
+2025/11/20 21:16:17 Python version: 3.12.2 | packaged by conda-forge | (main, Feb 16 2024, 20:50:58) [GCC 12.3.0]
+2025/11/20 21:16:17 Start to load format from formatbook....
+2025/11/20 21:16:17  -gwaslab format meta info:
+2025/11/20 21:16:17   - format_name  : gwaslab
+2025/11/20 21:16:17   - format_source  : https://cloufield.github.io/gwaslab/
+2025/11/20 21:16:17   - format_version  : 20231220_v4
+2025/11/20 21:16:17 Start to initialize gl.Sumstats from file :../liftoverMR-MEGA_rsID_noSNPID_sumstats/MR-MEGA_with_rsID_fullCols_noSNPID.gwaslab.tsv
+2025/11/20 21:16:20  -Reading columns          : EA,P,N,EAF,P_HET,rsID,CHR,STATUS,POS,NEA,DIRECTION
+2025/11/20 21:16:20  -Renaming columns to      : EA,P,N,EAF,P_HET,rsID,CHR,STATUS,POS,NEA,DIRECTION
+2025/11/20 21:16:20  -Current Dataframe shape : 2278131  x  11
+2025/11/20 21:16:20  -Initiating a status column: STATUS ...
+2025/11/20 21:16:20  -Genomic coordinates are based on GRCh38/hg38...
+2025/11/20 21:16:20 Start to reorder the columns...v3.6.10
+2025/11/20 21:16:20  -Current Dataframe shape : 2278131 x 11 ; Memory usage: 174.31 MB
+2025/11/20 21:16:20  -Reordering columns to    : rsID,CHR,POS,EA,NEA,EAF,P,N,DIRECTION,P_HET,STATUS
+2025/11/20 21:16:20 Finished reordering the columns.
+2025/11/20 21:16:20  -Trying to convert datatype for CHR: string -> Int64...Int64
+2025/11/20 21:16:21  -Column  : rsID   CHR   POS   EA       NEA      EAF     P       N     DIRECTION P_HET   STATUS  
+2025/11/20 21:16:21  -DType   : object Int64 int64 category category float64 float64 int64 object    float64 category
+2025/11/20 21:16:21  -Verified: T      T     T     T        T        T       T       T     T         T       T       
+2025/11/20 21:16:21  -Current Dataframe memory usage: 176.48 MB
+2025/11/20 21:16:21 Finished loading data successfully!
+2025/11/20 21:16:21  -Genomic coordinates are based on GRCh38/hg38...
+2025/11/20 21:16:21 Path component detected: ['23453636628688']
+2025/11/20 21:16:21 Creating path: ./23453636628688
+2025/11/20 21:16:21 Start to fix chromosome notation (CHR)...v3.6.10
+2025/11/20 21:16:21  -Current Dataframe shape : 2278131 x 11 ; Memory usage: 176.48 MB
+2025/11/20 21:16:21  -Checking CHR data type...
+2025/11/20 21:16:21  -Variants with standardized chromosome notation: 2278131
+2025/11/20 21:16:21  -All CHR are already fixed...
+2025/11/20 21:16:23 Finished fixing chromosome notation (CHR).
+2025/11/20 21:16:23 Start to fix basepair positions (POS)...v3.6.10
+2025/11/20 21:16:23  -Current Dataframe shape : 2278131 x 11 ; Memory usage: 176.48 MB
+2025/11/20 21:16:23  -Converting to Int64 data type ...
+2025/11/20 21:16:25  -Position bound:(0 , 250,000,000)
+2025/11/20 21:16:25  -Removed outliers: 0
+2025/11/20 21:16:25  -Removed 0 variants with bad positions.
+2025/11/20 21:16:25 Finished fixing basepair positions (POS).
+2025/11/20 21:16:25 Start to check if lead variants are known...v3.6.10
+2025/11/20 21:16:25  -Current Dataframe shape : 2278131 x 11 ; Memory usage: 196.04 MB
+2025/11/20 21:16:25 Start to extract lead variants...v3.6.10
+2025/11/20 21:16:25  -Current Dataframe shape : 2278131 x 11 ; Memory usage: 196.04 MB
+2025/11/20 21:16:25  -Processing 2278131 variants...
+2025/11/20 21:16:25  -Significance threshold : 5e-09
+2025/11/20 21:16:25  -Sliding window size: 250  kb
+2025/11/20 21:16:26  -Using P for extracting lead variants...
+2025/11/20 21:16:26  -Found 4123 significant variants in total...
+2025/11/20 21:16:26  -Identified 70 lead variants!
+2025/11/20 21:16:26 Finished extracting lead variants.
+2025/11/20 21:16:26  -Lead variants in known loci: 1033
+2025/11/20 21:16:26  -Checking the minimum distance between identified lead variants and provided known variants...
+2025/11/20 21:16:26  -Identified  62  known vairants in current sumstats...
+2025/11/20 21:16:26  -Identified  8  novel vairants in current sumstats...
+2025/11/20 21:16:26 Finished checking if lead variants are known.
+```
+</details>
+
+The summary statistics for the known and novel variants identified are in the data repository accompanying the github.
+
+## 7) Plotting 
+
+### Novel loci 
+<img width="7466" height="2766" alt="plot_novelLoci" src="https://github.com/user-attachments/assets/15c180d2-6b61-4aa2-92cc-37f7ebf7d7f5" />
+
+We used this script to highlight the 8 novel loci (in red and with their respective nearest protein coding gene):
+<details>
+    <summary>plot_novelLoci.py</summary>
+            
+```python=
+import gwaslab as gl
+
+input_file="MR-MEGA_with_rsID_fullCols_hg38"
+outPlot="plot_novelLoci.png"
+logFile="plot_novelLoci.txt"
+
+ss = gl.Sumstats(input_file, build="38", fmt="gwaslab"
+)
+
+
+ss.plot_mqq(
+                  mode="m",
+                  sig_level=5e-9,
+                  build="38", 
+                  anno="GENENAME",
+                  anno_set=["rs269291","rs4954490","rs2445964","rs6578471","rs933738","rs75544157","rs2837732","rs74793276"] ,
+                  pinpoint=["rs269291","rs4954490","rs2445964","rs6578471","rs933738","rs75544157","rs2837732","rs74793276"],
+                  stratified=True,
+                  marker_size=(5,10),
+                  save=outPlot, save_args={"dpi":600,"facecolor":"white"}
+                  )
+
+ss.log.save(path=logFile)
+```
+</details>
+
+### Overall plot 
+
+<img width="7430" height="2716" alt="plot" src="https://github.com/user-attachments/assets/b902b62d-cf17-4c97-85f0-c30af1bf8171" />
+
+We used this script to plot the 70 loci that were genome-wide significant at the multi-ancestry level (5-e9).
+
+<details>
+    <summary>plot_overallLoci.py</summary>
+            
+```python=
+import gwaslab as gl
+
+input_file="MR-MEGA_with_rsID_fullCols_hg38"
+outPlot="plot_novelLoci.png"
+logFile="plot_novelLoci.txt"
+
+ss = gl.Sumstats(input_file, build="38", fmt="gwaslab"
+)
+
+
+ss.plot_mqq(
+                  mode="m",
+                  sig_level=5e-9,
+                  repel_force=0.1,
+                  build="38", 
+                  anno="GENENAME",
+                  anno_style="tight",
+                  anno_fontsize=5,
+                  font_family="DejaVu Sans",
+                  #anno_set=["rs269291","rs4954490","rs2445964","rs6578471","rs933738","rs75544157","rs2837732","rs74793276"] ,
+                  #pinpoint=["rs269291","rs4954490","rs2445964","rs6578471","rs933738","rs75544157","rs2837732","rs74793276"],
+                  stratified=True,
+                  marker_size=(5,10),
+                  save=outPlot, save_args={"dpi":600,"facecolor":"white"}
+                  )
+
+ss.log.save(path=logFile)
+```
+</details>
+
+
 
 
