@@ -2,6 +2,8 @@
 
 This repository contains the methods employed to conduct a Trans-ethnic meta-regression of genome-wide association studies for Parkinson’s Disease risk. As part of a series of in house preliminar experiments.
 
+The data repository accompaying this github could be found here: https://1drv.ms/u/c/5E290E405B8F3AAB/IQA47-OXil7WTZL4fIEez9lsASCknf5FqVRYGZpijBBmRfk?e=Gq1P67 
+
 We used eight different GWAS summary statistics from ancestrally diverse datasets. And used MR-MEGA (https://pubmed.ncbi.nlm.nih.gov/28911207/) to perform a meta-analysis with meta-regression. 
 
 Briefly, MR-MEGA performs a fixed-effects meta-analysis across the input summary statistics to get the pooled effect sizes for variants with a minor allele frequency >1%. Then, using the allele frequency information of each variant, builds a matrix of mean pairwise allele frequency differences between the datasets, performs a principal component analysis of that matrix and then runs a meta-regression. Regressing each variant’s effect sizes on the principal components (PCs) of that allele frequency matrix. Allowing the possibility of recovering the significance of variants that have heterogeneous effects across cohorts (where the heterogeneity is correlated with ancestry). 
@@ -15,6 +17,13 @@ The main steps undertaken consisted on:
 6) Interrogate the discovery of novel loci
 7) Plot findings 
 
+Important disclaimers: 
+
+This project was performed as part of the latest experiments that were supported by the NIH Grant R01 1R01NS112499-01A1.
+
+The material outlined is preliminary and not intended for publication yet, since the future multi-ancetry meta-analyses for PD risk will be conducted in conjunction the Global Parkinson’s Genetics Program (GP2).  
+
+Regarding the analysis itself, further functionalities are under implementation, like alignment of the non-effect alleles to the reference allele in the reference genome, along with the performance of fixed and random effects meta-analysis. 
 
 ## 1) Format input summary statistics 
 
