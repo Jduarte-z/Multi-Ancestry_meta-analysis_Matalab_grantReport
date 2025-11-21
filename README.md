@@ -24,7 +24,7 @@ Important disclaimers:
 
 This project was performed as part of the latest experiments that were supported by the NIH Grant R01 1R01NS112499-01A1.
 
-The material outlined is preliminary and not intended for publication yet, since the future multi-ancetry meta-analyses for PD risk will be conducted in conjunction the Global Parkinson’s Genetics Program (GP2).  
+The material outlined is preliminary and not intended for publication yet, since future multi-ancetry meta-analyses for PD risk will be conducted in conjunction the Global Parkinson’s Genetics Program (GP2).  
 
 Regarding the analysis itself, further functionalities are under implementation, like alignment of the non-effect alleles to the reference allele in the reference genome, along with the performance of fixed and random effects meta-analysis. 
 
