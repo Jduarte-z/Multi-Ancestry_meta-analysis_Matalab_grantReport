@@ -2012,6 +2012,7 @@ ss.log.save(path=logFile)
 ```
 </details>
 
+Link to Locus Zoom: https://my.locuszoom.org/gwas/587610/?token=81f677b4a503415e8b69a7532b7fd23c
 
 
 
